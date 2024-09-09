@@ -12,35 +12,79 @@ type Signal<TValue extends any> = (
   initialValuePredicate: InitialValuePredicate<TValue>
 ) => [SignalGetter<TValue>, SignalSetter<TValue>];
 
+var $PROXYFIED_VALUE = Symbol('PROXYFIED_VALUE');
+
+// var SIGNAL_VALUE_PROXY_HANDLER = {}
+
 var signal = <TValue extends any>(
   initialValuePredicate: InitialValuePredicate<TValue>
 ): [SignalGetter<TValue>, SignalSetter<TValue>] => {
   var value = initialValuePredicate();
+  var proxyfiedValue = new Proxy(
+    {
+      value,
+    },
+    {
+      get(target, property, receiver) {
+        console.log('proxyfiedValue "get":', { target, property, value, receiver });
+        return Reflect.get(target, property, receiver);
+      },
+      set(target, property, value, receiver) {
+        console.log('proxyfiedValue "set":', { target, property, value, receiver });
+
+        return Reflect.set(target, property, value, receiver);
+      },
+    }
+  );
+
+  // var executeAssignment = typeof value !== 'object' && value !== null;
 
   const getter: SignalGetter<TValue> = () => {
-    return value;
+    return proxyfiedValue.value;
   };
 
   const setter: SignalSetter<TValue> = (predicate) => {
     var newValue = predicate(value);
 
-    // Prevent extra assignment to non "primitive" values.
-    if (typeof value !== 'object') {
-      value = newValue;
-    }
+    // // Prevent extra assignment to non "primitive" values.
+    // if (executeAssignment) {
+    //   value = newValue;
+    // }
+
+    value = newValue;
 
     return newValue;
   };
 
-  return [getter, setter];
+  var result = new Array(getter, setter) as [SignalGetter<TValue>, SignalSetter<TValue>];
+  (result as any)[$PROXYFIED_VALUE] = proxyfiedValue;
+
+  return result;
 };
 // ------------------------------------ signal ------------------------------------
 
 // ------------------------------------ effect ------------------------------------
-var withEffect = <TValue extends any>(signalReturnValue: ReturnType<Signal<TValue>>) => {
-  console.log({ signalReturnValue }, `${signalReturnValue[1]}`);
+var withEffect = <TValue extends any>(signalTuple: ReturnType<Signal<TValue>>) => {
+  var _getter = signalTuple[0];
+  var getter: SignalGetter<TValue> = () => {
+    console.log('withEffect: "getter"');
 
-  return signalReturnValue;
+    return _getter();
+  };
+
+  var _setter = signalTuple[1];
+  var setter: SignalSetter<TValue> = (predicate) => {
+    console.log('withEffect: "setter"');
+
+    return _setter(predicate);
+  };
+
+  console.log({ signalTuple, getter, setter });
+
+  signalTuple[0] = getter;
+  signalTuple[1] = setter;
+
+  return signalTuple;
 };
 
 type Effect = (fn: () => void) => void;
@@ -130,5 +174,13 @@ var memo = () => {
   var [count, setCount] = _signal(() => {
     return 1;
   });
+
+  console.log(count());
+
+  setCount(() => {
+    return 1337;
+  });
+
+  console.log(count());
   console.groupEnd();
 }

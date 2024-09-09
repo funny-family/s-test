@@ -3,26 +3,56 @@
  * @see https://dev.to/ratiu5/implementing-signals-from-scratch-3e4c
  * @see https://dev.to/ryansolid/building-a-reactive-library-from-scratch-1i0p
  */
+var $PROXYFIED_VALUE = Symbol('PROXYFIED_VALUE');
+// var SIGNAL_VALUE_PROXY_HANDLER = {}
 var signal = function (initialValuePredicate) {
     var value = initialValuePredicate();
+    var proxyfiedValue = new Proxy({
+        value: value,
+    }, {
+        get: function (target, property, receiver) {
+            console.log('proxyfiedValue "get":', { target: target, property: property, value: value, receiver: receiver });
+            return Reflect.get(target, property, receiver);
+        },
+        set: function (target, property, value, receiver) {
+            console.log('proxyfiedValue "set":', { target: target, property: property, value: value, receiver: receiver });
+            return Reflect.set(target, property, value, receiver);
+        },
+    });
+    // var executeAssignment = typeof value !== 'object' && value !== null;
     var getter = function () {
-        return value;
+        return proxyfiedValue.value;
     };
     var setter = function (predicate) {
         var newValue = predicate(value);
-        // Prevent extra assignment to non "primitive" values.
-        if (typeof value !== 'object') {
-            value = newValue;
-        }
+        // // Prevent extra assignment to non "primitive" values.
+        // if (executeAssignment) {
+        //   value = newValue;
+        // }
+        value = newValue;
         return newValue;
     };
-    return [getter, setter];
+    var result = new Array(getter, setter);
+    result[$PROXYFIED_VALUE] = proxyfiedValue;
+    return result;
 };
 // ------------------------------------ signal ------------------------------------
 // ------------------------------------ effect ------------------------------------
-var withEffect = function (signalReturnValue) {
-    console.log({ signalReturnValue: signalReturnValue }, "".concat(signalReturnValue[1]));
-    return signalReturnValue;
+var withEffect = function (signalTuple) {
+    var _getter = signalTuple[0];
+    var getter = function () {
+        console.log('withEffect: "getter"');
+        return _getter();
+    };
+    var _setter = signalTuple[1];
+    var setter = function (predicate) {
+        console.log('withEffect: "setter"');
+        return _setter(predicate);
+    };
+    console.log({ signalTuple: signalTuple, getter: getter, setter: setter });
+    signalTuple[0] = getter;
+    signalTuple[1] = setter;
+    return signalTuple;
 };
 // TODO!
 var effect = function () {
@@ -89,5 +119,10 @@ var memo = function () {
     var _c = _signal(function () {
         return 1;
     }), count = _c[0], setCount = _c[1];
+    console.log(count());
+    setCount(function () {
+        return 1337;
+    });
+    console.log(count());
     console.groupEnd();
 }
