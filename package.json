@@ -3,7 +3,7 @@
   "description": "s-test",
   "type": "module",
   "scripts": {
-    "dev": "tsc --watch ./src/index.ts & nodemon ./src/index.js"
+    "signal": "tsc --watch ./src/signal.ts & nodemon ./src/signal.js"
   },
   "author": "funny-family",
   "license": "ISC",
