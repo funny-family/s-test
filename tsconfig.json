@@ -7,7 +7,6 @@
     "lib": ["ESNext", "DOM"],
     "skipLibCheck": true,
     "moduleResolution": "node",
-    "jsx": "preserve",
     "strict": true,
     "baseUrl": "./",
     "declaration": true,
